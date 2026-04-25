@@ -1,5 +1,7 @@
 # commit-to-jira
 
+[![npm version](https://badge.fury.io/js/commit-to-jira.svg?icon=si%3Anpm)](https://www.npmjs.com/package/commit-to-jira)
+
 A CLI tool that bridges your Git workflow with Jira and GitHub. With a single command it reads your unpushed commits, creates a Jira ticket, rewrites every commit message to follow the conventional commit format with the ticket key, creates a branch, pushes it, opens a pull request, and moves the ticket to code review — all without leaving the terminal.
 
 ---
