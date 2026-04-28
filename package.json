@@ -1,6 +1,6 @@
 {
   "name": "commit-to-jira",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automate Jira ticket creation, commit rewriting, branch creation, and PR opening from the terminal",
   "type": "module",
   "bin": {
