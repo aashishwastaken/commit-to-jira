@@ -75,7 +75,7 @@ export function rewriteCommitMessages(commits, ticketKey) {
             CJ_MSG_DIR: posix(tmpDir),
         },
     });
-console.log('YOOOOOOOOOOOOOOOO')
+
     rmSync(tmpDir, { recursive: true, force: true });
 }
 
