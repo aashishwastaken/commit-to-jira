@@ -1,10 +1,15 @@
 {
   "name": "commit-to-jira",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automate Jira ticket creation, commit rewriting, branch creation, and PR opening from the terminal",
   "type": "module",
   "bin": {
     "commit-to-jira": "./index.js"
+  },
+  "scripts": {
+    "release:patch": "npm version patch && git push --follow-tags",
+    "release:minor": "npm version minor && git push --follow-tags",
+    "release:major": "npm version major && git push --follow-tags"
   },
   "publishConfig": {
     "access": "public"
