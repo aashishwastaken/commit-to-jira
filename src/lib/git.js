@@ -25,9 +25,9 @@ export function getUnpushedCommits() {
 }
 
 // Rewrites N commit messages in-place using a non-interactive rebase.
-// Uses temp shell scripts as GIT_SEQUENCE_EDITOR and GIT_EDITOR so no
-// terminal interaction is needed and it works on Windows (env vars via
-// Node's execSync env option, not shell assignment syntax).
+// Uses Node.js scripts as GIT_SEQUENCE_EDITOR and GIT_EDITOR — Node is
+// guaranteed to be installed, unlike perl/sed which differ across platforms.
+// Counter + message dir are passed via env vars to avoid shell-specific syntax.
 export function rewriteCommitMessages(commits, ticketKey) {
     const n = commits.length;
     const tmpDir = mkdtempSync(join(tmpdir(), 'cj-'));
@@ -40,21 +40,30 @@ export function rewriteCommitMessages(commits, ticketKey) {
         writeFileSync(join(tmpDir, String(i + 1)), fullMsg);
     });
 
-    const counterFile = posix(join(tmpDir, 'counter'));
-    const msgDir = posix(tmpDir);
     writeFileSync(join(tmpDir, 'counter'), '0');
 
-    const editorScript = join(tmpDir, 'editor.sh');
-    writeFileSync(
-        editorScript,
-        `#!/bin/sh\nCOUNT=$(cat "${counterFile}")\nCOUNT=$((COUNT + 1))\necho $COUNT > "${counterFile}"\ncp "${msgDir}/$COUNT" "$1"\n`,
-        { encoding: 'utf8' }
-    );
-    execSync(`chmod +x "${posix(editorScript)}"`);
-
-    const seqScript = join(tmpDir, 'seq.sh');
-    writeFileSync(seqScript, `#!/bin/sh\nsed -i 's/^pick/reword/' "$1"\n`, { encoding: 'utf8' });
+    // GIT_SEQUENCE_EDITOR: replaces all "pick" with "reword" using Node fs
+    const seqScript = join(tmpDir, 'seq.js');
+    writeFileSync(seqScript, [
+        '#!/usr/bin/env node',
+        "const fs = require('fs');",
+        'const file = process.argv[2];',
+        "fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/^pick /gm, 'reword '));",
+    ].join('\n'), { encoding: 'utf8' });
     execSync(`chmod +x "${posix(seqScript)}"`);
+
+    // GIT_EDITOR: increments a counter and writes the pre-built message for that commit
+    const editorScript = join(tmpDir, 'editor.js');
+    writeFileSync(editorScript, [
+        '#!/usr/bin/env node',
+        "const fs = require('fs'), path = require('path');",
+        'const counterFile = process.env.CJ_COUNTER;',
+        'const msgDir = process.env.CJ_MSG_DIR;',
+        "const n = parseInt(fs.readFileSync(counterFile, 'utf8').trim() || '0') + 1;",
+        'fs.writeFileSync(counterFile, String(n));',
+        "fs.writeFileSync(process.argv[2], fs.readFileSync(path.join(msgDir, String(n)), 'utf8'));",
+    ].join('\n'), { encoding: 'utf8' });
+    execSync(`chmod +x "${posix(editorScript)}"`);
 
     execSync(`git rebase -i HEAD~${n}`, {
         stdio: 'pipe',
@@ -62,6 +71,8 @@ export function rewriteCommitMessages(commits, ticketKey) {
             ...process.env,
             GIT_SEQUENCE_EDITOR: posix(seqScript),
             GIT_EDITOR: posix(editorScript),
+            CJ_COUNTER: posix(join(tmpDir, 'counter')),
+            CJ_MSG_DIR: posix(tmpDir),
         },
     });
 
