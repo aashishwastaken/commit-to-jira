@@ -9,13 +9,13 @@ A CLI tool that bridges your Git workflow with Jira and GitHub. With a single co
 
 ## How It Works
 
-1. **Reads commits** — finds all commits made since you branched off (`git log @{-1}..HEAD`)
+1. **Reads commits** — finds all unpushed commits on your current branch (`origin/<branch>..HEAD`)
 2. **Shows a preview** — lists the commits and the Jira project before doing anything
 3. **Fetches project metadata** — pulls available components and issue types live from Jira
 4. **Prompts for ticket details** — work type (Story/Task/Bug etc.), component, and acceptance criteria
 5. **Creates the Jira ticket** — assigned to you automatically
 6. **Rewrites commit messages** — every commit is reformatted to `type(TICKET-KEY): message` via a non-interactive rebase
-7. **Creates and pushes a branch** — named after the ticket key (e.g. `SSI-7218`)
+7. **Creates and pushes a branch** — named after the ticket key (e.g. `PROJ-1042`)
 8. **Opens a GitHub PR** — title follows the same conventional commit format, description includes all commit details
 9. **Moves the ticket** — transitions it to your configured "code review" status
 
@@ -41,7 +41,7 @@ npm install -g commit-to-jira
 ### From source
 
 ```bash
-git clone https://github.com/your-username/commit-to-jira.git
+git clone https://github.com/aashishwastaken/commit-to-jira.git
 cd commit-to-jira
 npm install
 npm link
@@ -55,6 +55,8 @@ Run once before using the tool:
 
 ```bash
 commit-to-jira setup
+# or
+c2j setup
 ```
 
 You will be prompted for:
@@ -77,6 +79,8 @@ You will be prompted for:
 
 ```bash
 commit-to-jira build
+# or using the short alias
+c2j build
 ```
 
 Run this from inside any Git repository after you have made one or more commits. The tool will walk you through the rest interactively.
@@ -106,7 +110,7 @@ The status name must exactly match a valid transition in your Jira workflow (cas
 ## Example Run
 
 ```
-$ commit-to-jira build
+$ c2j build
 
 --- TICKET PREVIEW ---
 Project:    PROJ
@@ -210,10 +214,30 @@ commit-to-jira build
 
 ### Reporting Issues
 
-Open an issue on [GitHub](https://github.com/your-username/commit-to-jira/issues) with:
+Open an issue on [GitHub](https://github.com/aashishwastaken/commit-to-jira/issues) with:
 - Your Node.js version (`node -v`)
 - The command you ran
 - The full error output
+
+---
+
+## Changelog
+
+### v1.0.2
+
+- **Added `c2j` alias** — `c2j build` and `c2j setup` now work as shorthand for `commit-to-jira build` / `commit-to-jira setup`
+- **Fixed commit detection** — switched from `@{-1}..HEAD` to `origin/<branch>..HEAD` so commits are correctly scoped to what's unpushed on the current branch, including on long-lived branches like `development`
+- **Fixed macOS compatibility** — replaced `sed -i` (Linux-only syntax) with cross-platform Node.js file operations; no dependency on `perl`, `sed`, or any external tool beyond Node itself
+- **Fixed GitHub PR base branch validation** — tool now checks the base branch exists on the remote before calling the GitHub API, with a clear error message instead of a cryptic 422
+- **Fixed commit body preservation** — commit descriptions are no longer dropped during the rebase rewrite
+
+### v1.0.1
+
+- Fixed support for Windows, macOS, and Linux
+
+### v1.0.0
+
+- Initial release
 
 ---
 
