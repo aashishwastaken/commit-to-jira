@@ -6,10 +6,29 @@ import { formatCommitMsg } from '../utils/format.js';
 
 const posix = p => p.replace(/\\/g, '/');
 
-// Returns commits made since the previously checked-out branch, newest first.
-// Uses ASCII control chars as delimiters to safely handle multi-line bodies.
-export function getUnpushedCommits() {
-    const raw = execSync('git log @{-1}..HEAD --pretty=format:"%x1e%s%x1f%b"')
+// Returns unpushed, non-merge commits on the current branch, newest first.
+// Strategy:
+//   1. origin/<branch>..HEAD    — branch already exists on remote
+//   2. origin/<devBranch>..HEAD — new branch; compare against the configured base
+//   3. @{-1}..HEAD              — last resort if no remote refs available
+// --no-merges excludes "Merge pull request" commits that pollute the list.
+export function getUnpushedCommits(devBranch) {
+    const currentBranch = execSync('git branch --show-current').toString().trim();
+
+    let base;
+    try {
+        execSync(`git rev-parse --verify origin/${currentBranch}`, { stdio: 'ignore' });
+        base = `origin/${currentBranch}`;
+    } catch {
+        try {
+            execSync(`git rev-parse --verify origin/${devBranch}`, { stdio: 'ignore' });
+            base = `origin/${devBranch}`;
+        } catch {
+            base = '@{-1}';
+        }
+    }
+
+    const raw = execSync(`git log ${base}..HEAD --pretty=format:"%x1e%s%x1f%b"`)
         .toString()
         .trim();
 
