@@ -4,7 +4,8 @@
   "description": "Automate Jira ticket creation, commit rewriting, branch creation, and PR opening from the terminal",
   "type": "module",
   "bin": {
-    "commit-to-jira": "./index.js"
+    "commit-to-jira": "./index.js",
+    "c2j": "./index.js"
   },
   "scripts": {
     "release:patch": "npm version patch && git push --follow-tags",

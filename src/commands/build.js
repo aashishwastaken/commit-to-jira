@@ -14,7 +14,7 @@ export async function buildCommand() {
     }
 
     try {
-        const commits = getUnpushedCommits();
+        const commits = getUnpushedCommits(config.get('devBranch'));
         if (!commits.length) {
             console.log(chalk.yellow('⚠️  No new commits found.'));
             return;
