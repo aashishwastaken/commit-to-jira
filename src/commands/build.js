@@ -20,14 +20,18 @@ export async function buildCommand() {
             return;
         }
 
+        const summary = unpushedCommits[0].summary;
+        printPreview(unpushedCommits, [], summary);
+
         // Optionally add already-pushed commits for ticket context
         const additionalCommits = await promptAdditionalCommits(unpushedCommits);
         const allCommits = [...unpushedCommits, ...additionalCommits];
 
-        const summary = unpushedCommits[0].summary;
-        const description = buildDescription(allCommits);
+        if (additionalCommits.length) {
+            printPreview(unpushedCommits, additionalCommits, summary);
+        }
 
-        printPreview(unpushedCommits, additionalCommits, summary);
+        const description = buildDescription(allCommits);
 
         const { confirm } = await inquirer.prompt([{
             type: 'confirm',
