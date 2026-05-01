@@ -28,19 +28,41 @@ export function getUnpushedCommits(devBranch) {
         }
     }
 
-    const raw = execSync(`git log ${base}..HEAD --pretty=format:"%x1e%s%x1f%b"`)
+    const raw = execSync(`git log ${base}..HEAD --pretty=format:"%x1e%H%x1f%s%x1f%b"`)
         .toString()
         .trim();
 
     if (!raw) return [];
 
     return raw.split('\x1e').filter(Boolean).map(entry => {
-        const [subject, ...bodyParts] = entry.split('\x1f');
+        const [hash, subject, ...bodyParts] = entry.split('\x1f');
         return {
+            hash: hash.trim(),
             summary: subject.trim(),
             body: bodyParts.join('').trim(),
+            alreadyPushed: false,
         };
     });
+}
+
+// Returns recent commits from branch history, excluding given hashes.
+// Used to let the user pick additional context commits for the Jira ticket.
+export function getRecentCommits(excludeHashes = [], limit = 50) {
+    const raw = execSync(`git log HEAD -${limit} --pretty=format:"%x1e%H%x1f%s%x1f%b"`)
+        .toString()
+        .trim();
+
+    if (!raw) return [];
+
+    return raw.split('\x1e').filter(Boolean).map(entry => {
+        const [hash, subject, ...bodyParts] = entry.split('\x1f');
+        return {
+            hash: hash.trim(),
+            summary: subject.trim(),
+            body: bodyParts.join('').trim(),
+            alreadyPushed: true,
+        };
+    }).filter(c => !excludeHashes.includes(c.hash));
 }
 
 // Rewrites N commit messages in-place using a non-interactive rebase.
@@ -48,11 +70,13 @@ export function getUnpushedCommits(devBranch) {
 // guaranteed to be installed, unlike perl/sed which differ across platforms.
 // Counter + message dir are passed via env vars to avoid shell-specific syntax.
 export function rewriteCommitMessages(commits, ticketKey) {
-    const n = commits.length;
+    const toRewrite = commits.filter(c => !c.alreadyPushed);
+    if (!toRewrite.length) return;
+    const n = toRewrite.length;
     const tmpDir = mkdtempSync(join(tmpdir(), 'cj-'));
 
     // Rebase replays oldest-first; git log returns newest-first
-    const oldestFirst = [...commits].reverse();
+    const oldestFirst = [...toRewrite].reverse();
     oldestFirst.forEach((c, i) => {
         const newSubject = formatCommitMsg(c.summary, ticketKey);
         const fullMsg = c.body ? `${newSubject}\n\n${c.body}\n` : `${newSubject}\n`;
