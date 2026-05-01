@@ -7,17 +7,28 @@ A CLI tool that bridges your Git workflow with Jira and GitHub. With a single co
 
 ---
 
+## New Changes
+
+- **Include history commits** — optionally attach already-pushed commits to the Jira ticket description as additional context, without rebasing them
+- **PR attribution** — every PR description now includes a link back to the Jira ticket and a "created by commit-to-jira" footer
+- **`c2j` shorthand** — `c2j build` and `c2j setup` work as short aliases
+- **Auto-fill setup** — re-running `c2j setup` pre-fills all previously saved values so you only change what's needed
+- **Jira auto-assign** — newly created tickets are automatically assigned to your account
+
+---
+
 ## How It Works
 
 1. **Reads commits** — finds all unpushed commits on your current branch (`origin/<branch>..HEAD`)
 2. **Shows a preview** — lists the commits and the Jira project before doing anything
-3. **Fetches project metadata** — pulls available components and issue types live from Jira
-4. **Prompts for ticket details** — work type (Story/Task/Bug etc.), component, and acceptance criteria
-5. **Creates the Jira ticket** — assigned to you automatically
-6. **Rewrites commit messages** — every commit is reformatted to `type(TICKET-KEY): message` via a non-interactive rebase
-7. **Creates and pushes a branch** — named after the ticket key (e.g. `PROJ-1042`)
-8. **Opens a GitHub PR** — title follows the same conventional commit format, description includes all commit details
-9. **Moves the ticket** — transitions it to your configured "code review" status
+3. **Optionally adds history** — prompts whether to include already-pushed commits as ticket context (shown in a paginated checkbox, not rebased)
+4. **Fetches project metadata** — pulls available components and issue types live from Jira
+5. **Prompts for ticket details** — work type (Story/Task/Bug etc.), component, and acceptance criteria
+6. **Creates the Jira ticket** — assigned to you automatically
+7. **Rewrites commit messages** — every unpushed commit is reformatted to `type(TICKET-KEY): message` via a non-interactive rebase
+8. **Creates and pushes a branch** — named after the ticket key (e.g. `PROJ-1042`)
+9. **Opens a GitHub PR** — title follows the same conventional commit format, description includes all commit details
+10. **Moves the ticket** — transitions it to your configured "code review" status
 
 ---
 
@@ -222,6 +233,10 @@ Open an issue on [GitHub](https://github.com/aashishwastaken/commit-to-jira/issu
 ---
 
 ## Changelog
+
+### v1.0.3
+
+- **Added "include history" prompt** — after detecting unpushed commits, you're now asked whether to include already-pushed commits as additional context in the Jira ticket description. These commits appear in a dedicated "Additional context commits" section and are never rebased.
 
 ### v1.0.2
 
