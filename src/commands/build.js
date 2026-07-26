@@ -1,16 +1,21 @@
+import { execSync } from 'child_process';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import config from '../config.js';
 import { formatCommitMsg } from '../utils/format.js';
 import { handleError } from '../utils/errors.js';
-import { getUnpushedCommits, getRecentCommits, rewriteCommitMessages, createAndPushBranch, detectGithubRepo } from '../lib/git.js';
+import { getUnpushedCommits, getRecentCommits, rewriteCommitMessages, createAndPushBranch, detectGithubRepo, checkoutNewBranch, commitWithMessage, pushBranch, localBranchExists, getCurrentBranch } from '../lib/git.js';
 import { createJiraClient, getMyself, getProjectComponents, getProjectIssueTypes, createIssue, getTransitions, transitionIssue } from '../lib/jira.js';
 import { createPullRequest } from '../lib/github.js';
 
-export async function buildCommand() {
+export async function buildCommand(options = {}) {
     if (!config.get('token')) {
         console.log(chalk.red('❌ Run "commit-to-jira setup" first.'));
         return;
+    }
+
+    if (options.message?.trim()) {
+        return messageBranchFlow(options.message.trim());
     }
 
     try {
@@ -240,5 +245,116 @@ async function moveTicketToCodeReview(jira, ticketKey) {
         console.log(chalk.green(`✅ Ticket moved to "${targetStatus}".`));
     } catch (err) {
         console.log(chalk.yellow(`⚠️  Could not update ticket status: ${err.response?.data?.errorMessages?.join(', ') || err.message}`));
+    }
+}
+
+// -m flow: create ticket from message, checkout branch, commit staged changes, push, PR, transition.
+async function messageBranchFlow(rawMessage) {
+    try {
+        const jira = createJiraClient(config.get('email'), config.get('token'), config.get('url'));
+        let ticketKey;
+        let skipToCreate = false;
+
+        // Idempotency: if a previous run failed after ticket creation, offer to reuse it
+        const cached = config.get('lastBuildM');
+        if (cached?.message === rawMessage && cached?.ticketKey) {
+            const { reuse } = await inquirer.prompt([{
+                type: 'confirm',
+                name: 'reuse',
+                message: `Ticket ${cached.ticketKey} was already created for this message. Reuse it?`,
+                default: true,
+            }]);
+            if (reuse) {
+                ticketKey = cached.ticketKey;
+                skipToCreate = true;
+                console.log(chalk.blue(`\nResuming with ${ticketKey}...`));
+            }
+        }
+
+        if (!skipToCreate) {
+            console.log(chalk.cyan('\n--- TICKET PREVIEW ---'));
+            console.log(`${chalk.bold('Project:')}    ${config.get('project')}`);
+            console.log(`${chalk.bold('Summary:')}    ${rawMessage}`);
+            console.log(`${chalk.bold('Dev branch:')} ${config.get('devBranch')}`);
+            console.log(chalk.cyan('----------------------\n'));
+
+            const { confirm } = await inquirer.prompt([{
+                type: 'confirm',
+                name: 'confirm',
+                message: 'Create Jira ticket, commit staged changes, push branch, open a PR, and move to code review?',
+                default: true,
+            }]);
+            if (!confirm) {
+                console.log(chalk.yellow('Aborted.'));
+                return;
+            }
+
+            console.log(chalk.blue('\nFetching your Jira account...'));
+            const { accountId } = await getMyself(jira);
+
+            console.log(chalk.blue('Fetching project metadata...'));
+            const [components, issueTypes] = await Promise.all([
+                getProjectComponents(jira, config.get('project')),
+                getProjectIssueTypes(jira, config.get('project')),
+            ]);
+
+            const { issueType, componentId, acceptanceCriteria } = await promptTicketFields(components, issueTypes);
+
+            console.log(chalk.blue('\n🚀 Creating Jira ticket...'));
+            const issue = await createIssue(jira, {
+                project:           { key: config.get('project') },
+                summary:           rawMessage,
+                description:       rawMessage,
+                issuetype:         { name: issueType },
+                components:        [{ id: componentId }],
+                customfield_10029: acceptanceCriteria,
+                assignee:          { accountId },
+            });
+            ticketKey = issue.key;
+            console.log(chalk.green(`✅ Jira ticket created: ${ticketKey}`));
+
+            config.set('lastBuildM', { ticketKey, message: rawMessage });
+        }
+
+        const formattedMessage = formatCommitMsg(rawMessage, ticketKey);
+
+        const currentBranch = getCurrentBranch();
+        if (currentBranch === ticketKey) {
+            console.log(chalk.dim(`Already on branch ${ticketKey}.`));
+        } else if (localBranchExists(ticketKey)) {
+            console.log(chalk.dim(`Branch ${ticketKey} exists — checking out.`));
+            execSync(`git checkout ${ticketKey}`);
+        } else {
+            console.log(chalk.blue(`\n🌿 Creating branch: ${ticketKey}`));
+            checkoutNewBranch(ticketKey);
+            console.log(chalk.green(`✅ Checked out: ${ticketKey}`));
+        }
+
+        console.log(chalk.blue(`\n📝 Committing: ${formattedMessage}`));
+        try {
+            commitWithMessage(formattedMessage);
+            console.log(chalk.green('✅ Commit created.'));
+        } catch (err) {
+            if (err.message?.includes('nothing to commit')) {
+                console.log(chalk.dim('Nothing new to commit — continuing with push.'));
+            } else {
+                throw err;
+            }
+        }
+
+        console.log(chalk.blue('\n⬆️  Pushing branch...'));
+        pushBranch(ticketKey);
+        console.log(chalk.green(`✅ Branch pushed: ${ticketKey}`));
+
+        await openPullRequest({ ticketKey, summary: rawMessage, description: rawMessage, jiraBase: config.get('url') });
+
+        await moveTicketToCodeReview(jira, ticketKey);
+
+        config.delete('lastBuildM');
+
+        console.log(chalk.green(`\n🎉 All done! Ticket: ${config.get('url')}/browse/${ticketKey}`));
+
+    } catch (err) {
+        handleError(err);
     }
 }

@@ -7,7 +7,21 @@ A CLI tool that bridges your Git workflow with Jira and GitHub. With a single co
 
 ---
 
-## New Changes
+## New in v1.2.0 — `c2j cb`
+
+**`c2j cb -m "your commit message"`** is a simpler, message-first workflow:
+
+- Pass your commit message up front — no unpushed commits required
+- A Jira ticket is created from that message
+- A new branch is checked out (named after the ticket key) — your staged changes carry over
+- A commit is made with the ticket key embedded in the message
+- The branch is pushed, a PR is opened, and the ticket is moved to code review
+
+**Retry-safe:** if the process fails after the ticket is created (e.g. PR network error), running the same command again detects the existing ticket and asks whether to reuse it — preventing duplicate Jira tickets.
+
+---
+
+## Previous Changes
 
 - **Include history commits** — optionally attach already-pushed commits to the Jira ticket description as additional context, without rebasing them
 - **PR attribution** — every PR description now includes a link back to the Jira ticket and a "created by commit-to-jira" footer
@@ -88,13 +102,32 @@ You will be prompted for:
 
 ## Usage
 
+### `c2j cb` — message-first workflow (new)
+
+```bash
+c2j cb -m "feat: add dark mode toggle"
+```
+
+Stage your changes first (`git add`), then run this command. It will:
+
+1. Create a Jira ticket from the message
+2. Check out a new branch named after the ticket key (e.g. `PROJ-1042`) — staged changes carry over
+3. Commit with the key embedded: `feat(PROJ-1042): add dark mode toggle`
+4. Push the branch, open a PR, and move the ticket to code review
+
+If the run fails partway (e.g. a network error on PR creation), re-running with the same `-m` message will detect the existing ticket and ask whether to reuse it — no duplicate tickets.
+
+---
+
+### `c2j build` — commit-first workflow
+
 ```bash
 commit-to-jira build
 # or using the short alias
 c2j build
 ```
 
-Run this from inside any Git repository after you have made one or more commits. The tool will walk you through the rest interactively.
+Run this from inside any Git repository after you have made one or more commits. The tool detects your unpushed commits and walks you through creating a ticket, rewriting them, and opening a PR.
 
 ---
 
@@ -204,7 +237,8 @@ commit-to-jira/
 │   ├── config.js             # Shared persistent config (Conf)
 │   ├── commands/
 │   │   ├── setup.js          # Setup command
-│   │   └── build.js          # Build command and step orchestration
+│   │   ├── build.js          # Build command — commit-first workflow
+│   │   └── cb.js             # cb command — message-first workflow
 │   ├── lib/
 │   │   ├── git.js            # Git operations
 │   │   ├── jira.js           # Jira REST API client
@@ -233,6 +267,16 @@ Open an issue on [GitHub](https://github.com/aashishwastaken/commit-to-jira/issu
 ---
 
 ## Changelog
+
+### v1.2.0
+
+- **New `c2j cb -m "message"` command** — message-first workflow: pass a commit message, get a Jira ticket, a new branch, a formatted commit, a PR, and a status transition — all in one step without any existing unpushed commits
+- **Retry-safe ticket creation** — if `cb` fails after the Jira ticket is created, re-running with the same message detects the cached ticket and asks whether to reuse it, preventing duplicate tickets
+- **Graceful PR resume** — if the PR already exists on GitHub (e.g. a retry), the tool logs a warning instead of crashing
+
+### v1.1.0
+
+- **Multiple commits per ticket** — `c2j build` now rewrites all unpushed commits, not just the most recent one
 
 ### v1.0.3
 

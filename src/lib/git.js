@@ -128,6 +128,32 @@ export function createAndPushBranch(branchName) {
     execSync(`git push -u origin ${branchName}`);
 }
 
+export function getCurrentBranch() {
+    return execSync('git branch --show-current').toString().trim();
+}
+
+export function localBranchExists(branchName) {
+    try {
+        execSync(`git rev-parse --verify refs/heads/${branchName}`, { stdio: 'ignore' });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+export function checkoutNewBranch(branchName) {
+    execSync(`git checkout -b ${branchName}`);
+}
+
+// Commits staged changes. Throws if nothing is staged.
+export function commitWithMessage(message) {
+    execSync(`git commit -m ${JSON.stringify(message)}`);
+}
+
+export function pushBranch(branchName) {
+    execSync(`git push -u origin ${branchName}`);
+}
+
 // Parses the origin remote URL to extract "owner/repo".
 // Handles both HTTPS and SSH remote formats.
 export function detectGithubRepo() {
