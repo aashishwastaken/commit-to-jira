@@ -16,7 +16,8 @@ program
 
 program
     .command('build')
-    .description('Create a Jira ticket, rewrite commits, push a branch, and open a PR')
+    .description('Create a Jira ticket and open a PR. Without -m: reads unpushed commits and rewrites them. With -m: commits staged changes under a new ticket and branch.')
+    .option('-m, --message <message>', 'Commit message — creates a ticket from this, checks out a new branch, commits staged changes, and opens a PR')
     .action(buildCommand);
 
 export { program };
